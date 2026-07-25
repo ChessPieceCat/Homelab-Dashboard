@@ -1,7 +1,16 @@
 package main
 
-import "fmt"
+import (
+	"net/http"
+	"log"
+)
 
 func main() {
-	fmt.Println("Hello, World!")
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Hello, World!"))
+	})
+
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
 }
