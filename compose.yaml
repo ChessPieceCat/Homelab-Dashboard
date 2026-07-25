@@ -1,0 +1,4 @@
+services:
+  dashboard:
+    # TODO: Fill in build/image, ports, env, and volumes.
+    image: dashboard-image
