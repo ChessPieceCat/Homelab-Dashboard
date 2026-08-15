@@ -5,17 +5,17 @@ html
     color: #36ADA3;
 }
 
-.performance-metrics {
+.performance-metrics ul {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(2, 1fr);
     justify-items: center;
     align-items: center;
     font-size: 1.2em;
     margin-top: 20px;
+    list-style-type: none;
     }
 
-.performance-metrics p {
+.performance-metrics li {
     margin: 0;
     background-color: #2F578A;
     padding: 10px;

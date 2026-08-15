@@ -1,9 +1,9 @@
 package main
 
 import (
+	"html/template"
 	"log"
 	"net/http"
-	"os"
 )
 
 func main() {
@@ -24,13 +24,33 @@ func main() {
 		log.Printf("Container: %s, Status: %s", status.Name, status.Status)
 	}
 
+	// Serve static files from the "web" directory
+	http.Handle(
+		"/static/",
+		http.StripPrefix(
+			"/static/",
+			http.FileServer(http.Dir("web")),
+		),
+	)
+
 	// Serve the index.html file
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		file, err := os.ReadFile("web/index.html")
+		tmpl, err := template.ParseFiles("web/index.html")
 		if err != nil {
-			log.Fatalf("Failed to read index.html: %v", err)
+			http.Error(w, "Failed to load template", http.StatusInternalServerError)
+			return
 		}
-		w.Write(file)
+
+		// Pass the container statuses to the template
+		data := struct {
+			Statuses []Container
+		}{
+			Statuses: statuses,
+		}
+
+		if err := tmpl.Execute(w, data); err != nil {
+			http.Error(w, "Failed to render template", http.StatusInternalServerError)
+		}
 	})
 
 	if err := http.ListenAndServe(":8080", nil); err != nil {

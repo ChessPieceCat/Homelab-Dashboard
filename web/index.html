@@ -4,25 +4,25 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Homelab Dashboard</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="/static/styles.css">
   </head>
   <body>
     <h1>Server Dashboard</h1>
     <div class="performance-metrics">
-      <ul>
-        <li>CPU: 65%</li>
-        <li>GPU: 45%</li>
-        <li>Memory: 42%</li>
-        <li>Storage: 78%</li>
-      </ul>
+        <ul>
+            <li>CPU: 65%</li>
+            <li>GPU: 45%</li>
+            <li>Memory: 42%</li>
+            <li>Storage: 78%</li>
+        </ul>
     </div>
 
     <div class="containers">
       <h2>Containers</h2>
       <ul>
-        <li>Container 1 Status: Running</li>
-        <li>Container 2 Status: Running</li>
-        <li>Container 3 Status: Running</li>
+        {{ range .Statuses }}
+          <li>{{ .Name }} Status: {{ .Status }}</li>
+        {{ end }}
       </ul>
     </div>
   </body>
