@@ -20,8 +20,8 @@ func main() {
 	}
 
 	// Log container statuses
-	for name, status := range statuses {
-		log.Printf("Container: %s, Status: %s", name, status)
+	for _, status := range statuses {
+		log.Printf("Container: %s, Status: %s", status.Name, status.Status)
 	}
 
 	// Serve the index.html file

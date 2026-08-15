@@ -20,7 +20,7 @@ func createDockerClient() (*client.Client, error) {
 }
 
 // Return each container's name and status as a map
-func getContainerStatuses(apiClient *client.Client) (map[string]string, error) {
+func getContainerStatuses(apiClient *client.Client) ([]Container, error) {
 	containers, err := apiClient.ContainerList(context.Background(), client.ContainerListOptions{
 		All: true,
 	})
@@ -28,10 +28,19 @@ func getContainerStatuses(apiClient *client.Client) (map[string]string, error) {
 		return nil, err
 	}
 
-	statuses := make(map[string]string)
+	var containerStatuses []Container
 	for _, container := range containers.Items {
-		statuses[container.Names[0]] = container.Status
+		containerStatuses = append(containerStatuses, Container{
+			Name:   container.Names[0],
+			Status: container.Status,
+		})
 	}
 
-	return statuses, nil
+	return containerStatuses, nil
+}
+
+// Create containers struct to hold container information
+type Container struct {
+	Name   string
+	Status string
 }
