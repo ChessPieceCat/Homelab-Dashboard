@@ -44,3 +44,11 @@ func main() {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }
+
+type DashboardData struct {
+	Statuses     []docker.Container
+	CPUUsage     float64
+	MemoryUsage  float64
+	StorageUsage float64
+	Uptime       string
+}
