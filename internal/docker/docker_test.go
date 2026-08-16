@@ -5,8 +5,8 @@ import "testing"
 func TestCalculateCPUUsagePercent(t *testing.T) {
 	tests := []struct {
 		name     string
-		previous containerStats
-		current  containerStats
+		previous cpuStats
+		current  cpuStats
 		expected float64
 	}{
 		{
@@ -102,10 +102,10 @@ func TestCalculateMemoryUsagePercent(t *testing.T) {
 }
 
 // Helpers for constructing containerStats test data
-func makeCPUStats(totalCPU, systemCPU uint64) containerStats {
-	var stats containerStats
-	stats.CPUStats.CPUUsage.TotalUsage = totalCPU
-	stats.CPUStats.SystemCPUUsage = systemCPU
+func makeCPUStats(totalCPU, systemCPU uint64) cpuStats {
+	var stats cpuStats
+	stats.CPUUsage.TotalUsage = totalCPU
+	stats.SystemCPUUsage = systemCPU
 	return stats
 }
 
