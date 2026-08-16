@@ -10,8 +10,8 @@ Version 2
 - [x] Uptime
 
 Version 3
-- [] Start container
-- [] Stop container
+- [x] Start container
+- [x] Stop container
 
 Version 4
 - [] Auto-refresh
