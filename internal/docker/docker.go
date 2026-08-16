@@ -3,10 +3,11 @@ package docker
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"math"
+	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/moby/moby/client"
@@ -26,7 +27,7 @@ func CreateDockerClient() (*client.Client, error) {
 }
 
 // Return each container's name and status
-func GetContainerStatuses(apiClient *client.Client) ([]Container, error) {
+func GetContainers(apiClient *client.Client) ([]Container, error) {
 	containers, err := apiClient.ContainerList(context.Background(), client.ContainerListOptions{
 		All: true,
 	})
@@ -51,6 +52,10 @@ func GetContainerStatuses(apiClient *client.Client) ([]Container, error) {
 		log.Printf("Failed to get container resource usage: %v", err)
 		return nil, err
 	}
+
+	sort.Slice(updatedStatuses, func(i, j int) bool {
+		return updatedStatuses[i].Name < updatedStatuses[j].Name
+	})
 
 	return updatedStatuses, nil
 }
@@ -213,48 +218,33 @@ func getContainerResourceUsage(
 	return updatedStatuses, nil
 }
 
-func (m *Monitor) Start(interval time.Duration) {
-	go func() {
-		m.update() // Initial update before starting the ticker
+func GetContainerStatus(
+	dockerClient *client.Client,
+	containerID string,
+) (string, error) {
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		2*time.Second,
+	)
+	defer cancel()
 
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-
-		for range ticker.C {
-			m.update()
-		}
-	}()
-}
-
-func (m *Monitor) update() {
-	// Get container statuses
-	statuses, err := GetContainerStatuses(m.client)
+	containers, err := dockerClient.ContainerList(
+		ctx,
+		client.ContainerListOptions{
+			All: true,
+		},
+	)
 	if err != nil {
-		log.Printf("Failed to get container statuses: %v", err)
-		return
+		return "", err
 	}
 
-	m.mutex.Lock()
-	m.statuses = statuses
-	m.mutex.Unlock()
-}
-
-func (m *Monitor) GetStatuses() []Container {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	// Return a copy of the statuses slice to avoid race conditions
-	statusesCopy := make([]Container, len(m.statuses))
-	copy(statusesCopy, m.statuses)
-
-	return statusesCopy
-}
-
-// NewMonitor creates a new Monitor instance with the provided Docker client.
-func NewMonitor(client *client.Client) *Monitor {
-	return &Monitor{
-		client: client,
+	for _, container := range containers.Items {
+		if container.ID == containerID {
+			return container.Status, nil
+		}
 	}
+
+	return "", fmt.Errorf("container %s not found", containerID)
 }
 
 // Create containers struct to hold container information
@@ -264,12 +254,6 @@ type Container struct {
 	Status      string
 	CPUUsage    float64
 	MemoryUsage float64
-}
-
-type Monitor struct {
-	client   *client.Client
-	statuses []Container
-	mutex    sync.RWMutex
 }
 
 type cpuStats struct {
