@@ -7,7 +7,7 @@ Version 1
 Version 2
 - [x] CPU usage
 - [x] Memory usage
-- [] Uptime
+- [x] Uptime
 
 Version 3
 - [] Start container

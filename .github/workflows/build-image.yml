@@ -1,4 +1,4 @@
-name: Build Image
+name: Build
 
 on:
     pull_request:
@@ -7,9 +7,17 @@ on:
             - main
 
 jobs:
-    build-image:
+    build:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
 
-            - run: echo "Placeholder"
+            - uses: actions/setup-go@v5
+              with:
+                  go-version-file: ./go.mod
+            
+            - name: Download dependencies
+              run: go mod download
+
+            - name: Build application
+              run: go build -o app .
