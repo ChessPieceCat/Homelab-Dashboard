@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"time"
 )
 
 func main() {
@@ -24,16 +25,21 @@ func main() {
 		),
 	)
 
+	// Create a new monitor instance
+	monitor := docker.NewMonitor(dockerClient)
+
+	// Start the monitor
+	monitor.Start(5 * time.Second) // Update every 5 seconds
+
+	tmpl, err := template.ParseFiles("web/index.html")
+	if err != nil {
+		log.Fatalf("Failed to parse template: %v", err)
+	}
+
 	// Serve the index.html file
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		tmpl, err := template.ParseFiles("web/index.html")
-		if err != nil {
-			http.Error(w, "Failed to load template", http.StatusInternalServerError)
-			return
-		}
-
 		// Get container statuses
-		statuses, err := docker.GetContainerStatuses(dockerClient)
+		statuses := monitor.GetStatuses()
 		if err != nil {
 			log.Printf("Failed to get container statuses: %v", err)
 			http.Error(w, "Failed to get container statuses", http.StatusInternalServerError)
@@ -48,17 +54,22 @@ func main() {
 			return
 		}
 
+		// Get system uptime
+		uptime := system.CalculateUptime(0) // Pass 0 to get the current uptime
+
 		// Pass the container statuses and system usage to the template
 		data := struct {
 			Statuses     []docker.Container
 			CPUUsage     float64
 			MemoryUsage  float64
 			StorageUsage float64
+			Uptime       string
 		}{
 			Statuses:     statuses,
 			CPUUsage:     cpuUsage,
 			MemoryUsage:  memoryUsage,
 			StorageUsage: storageUsage,
+			Uptime:       uptime,
 		}
 
 		if err := tmpl.Execute(w, data); err != nil {
