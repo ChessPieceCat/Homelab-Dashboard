@@ -2,7 +2,6 @@ package main
 
 import (
 	"homelab-dashboard/internal/docker"
-	"homelab-dashboard/internal/system"
 	"html/template"
 	"log"
 	"net/http"
@@ -36,53 +35,12 @@ func main() {
 		log.Fatalf("Failed to parse template: %v", err)
 	}
 
-	// Serve the index.html file
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// Get container statuses
-		statuses := monitor.GetStatuses()
-
-		// Get system usage
-		cpuUsage, memoryUsage, storageUsage, err := system.GetSystemUsage()
-		if err != nil {
-			log.Printf("Failed to get system usage: %v", err)
-			http.Error(w, "Failed to get system usage", http.StatusInternalServerError)
-			return
-		}
-
-		// Get system uptime
-		uptime, err := system.GetSystemUptime()
-		if err != nil {
-			log.Printf("Failed to get system uptime: %v", err)
-			http.Error(w, "Failed to get system uptime", http.StatusInternalServerError)
-			return
-		}
-
-		// Format uptime
-		uptimeStr := system.FormatUptime(uptime)
-
-		// Pass the container statuses and system usage to the template
-		data := DashboardData{
-			Statuses:     statuses,
-			CPUUsage:     cpuUsage,
-			MemoryUsage:  memoryUsage,
-			StorageUsage: storageUsage,
-			Uptime:       uptimeStr,
-		}
-
-		if err := tmpl.Execute(w, data); err != nil {
-			http.Error(w, "Failed to render template", http.StatusInternalServerError)
-		}
-	})
+	http.HandleFunc("/", dashboardHandler(monitor, tmpl))
+	http.HandleFunc("/container/start", containerActionHandler(dockerClient, monitor))
+	http.HandleFunc("/container/stop", containerActionHandler(dockerClient, monitor))
+	http.HandleFunc("/container/restart", containerActionHandler(dockerClient, monitor))
 
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
-}
-
-type DashboardData struct {
-	Statuses     []docker.Container
-	CPUUsage     float64
-	MemoryUsage  float64
-	StorageUsage float64
-	Uptime       string
 }
