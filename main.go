@@ -1,6 +1,8 @@
 package main
 
 import (
+	"homelab-dashboard/internal/docker"
+	"homelab-dashboard/internal/system"
 	"html/template"
 	"log"
 	"net/http"
@@ -8,21 +10,19 @@ import (
 
 func main() {
 	// Create a Docker client
-	dockerClient, err := createDockerClient()
+	dockerClient, err := docker.CreateDockerClient()
 	if err != nil {
 		log.Fatalf("Failed to create Docker client: %v", err)
 	}
 
-	// Get container statuses
-	statuses, err := getContainerStatuses(dockerClient)
-	if err != nil {
-		log.Fatalf("Failed to get container statuses: %v", err)
-	}
-
-	// Log container statuses
-	for _, status := range statuses {
-		log.Printf("Container: %s, Status: %s", status.Name, status.Status)
-	}
+	// Serve static files from the "web" directory
+	http.Handle(
+		"/static/",
+		http.StripPrefix(
+			"/static/",
+			http.FileServer(http.Dir("web")),
+		),
+	)
 
 	// Serve static files from the "web" directory
 	http.Handle(
@@ -41,11 +41,33 @@ func main() {
 			return
 		}
 
-		// Pass the container statuses to the template
+		// Get container statuses
+		statuses, err := docker.GetContainerStatuses(dockerClient)
+		if err != nil {
+			log.Printf("Failed to get container statuses: %v", err)
+			http.Error(w, "Failed to get container statuses", http.StatusInternalServerError)
+			return
+		}
+
+		// Get system usage
+		cpuUsage, memoryUsage, storageUsage, err := system.GetSystemUsage()
+		if err != nil {
+			log.Printf("Failed to get system usage: %v", err)
+			http.Error(w, "Failed to get system usage", http.StatusInternalServerError)
+			return
+		}
+
+		// Pass the container statuses and system usage to the template
 		data := struct {
-			Statuses []Container
+			Statuses     []docker.Container
+			CPUUsage     float64
+			MemoryUsage  float64
+			StorageUsage float64
 		}{
-			Statuses: statuses,
+			Statuses:     statuses,
+			CPUUsage:     cpuUsage,
+			MemoryUsage:  memoryUsage,
+			StorageUsage: storageUsage,
 		}
 
 		if err := tmpl.Execute(w, data); err != nil {
