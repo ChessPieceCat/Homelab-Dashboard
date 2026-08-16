@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -56,18 +57,8 @@ func GetContainerStatuses(apiClient *client.Client) ([]Container, error) {
 
 // containerStats mirrors the subset of the Docker stats JSON response we need.
 type containerStats struct {
-	CPUStats struct {
-		CPUUsage struct {
-			TotalUsage uint64 `json:"total_usage"`
-		} `json:"cpu_usage"`
-		SystemCPUUsage uint64 `json:"system_cpu_usage"`
-	} `json:"cpu_stats"`
-	PreCPUStats struct {
-		CPUUsage struct {
-			TotalUsage uint64 `json:"total_usage"`
-		} `json:"cpu_usage"`
-		SystemCPUUsage uint64 `json:"system_cpu_usage"`
-	} `json:"precpu_stats"`
+	CPUStats    cpuStats `json:"cpu_stats"`
+	PreCPUStats cpuStats `json:"precpu_stats"`
 	MemoryStats struct {
 		Usage uint64            `json:"usage"`
 		Limit uint64            `json:"limit"`
@@ -80,23 +71,23 @@ type containerStats struct {
 // system_cpu_delta = current system CPU usage - previous system CPU usage
 // number_cpus = number of online CPUs
 // CPU usage % = (cpu_delta / system_cpu_delta) * 100.0
-func calculateCPUUsagePercent(previous, current containerStats) float64 {
-	if current.CPUStats.CPUUsage.TotalUsage < previous.CPUStats.CPUUsage.TotalUsage {
+func calculateCPUUsagePercent(previous, current cpuStats) float64 {
+	if current.CPUUsage.TotalUsage < previous.CPUUsage.TotalUsage {
 		return 0
 	}
 
-	if current.CPUStats.SystemCPUUsage < previous.CPUStats.SystemCPUUsage {
+	if current.SystemCPUUsage < previous.SystemCPUUsage {
 		return 0
 	}
 
 	cpuDelta := float64(
-		current.CPUStats.CPUUsage.TotalUsage -
-			previous.CPUStats.CPUUsage.TotalUsage,
+		current.CPUUsage.TotalUsage -
+			previous.CPUUsage.TotalUsage,
 	)
 
 	systemCPUDelta := float64(
-		current.CPUStats.SystemCPUUsage -
-			previous.CPUStats.SystemCPUUsage,
+		current.SystemCPUUsage -
+			previous.SystemCPUUsage,
 	)
 
 	if cpuDelta == 0 || systemCPUDelta == 0 {
@@ -145,11 +136,22 @@ func calculateMemoryUsagePercent(stats containerStats) float64 {
 
 // getContainerResourceUsage fetches CPU and memory usage percentages for each
 // container and returns an updated slice with those fields populated
-func getContainerResourceUsage(dockerClient *client.Client, statuses []Container) ([]Container, error) {
+func getContainerResourceUsage(
+	dockerClient *client.Client,
+	statuses []Container,
+) ([]Container, error) {
+
 	results := make(chan Container, len(statuses))
 
 	for _, container := range statuses {
 		go func(container Container) {
+
+			// Stopped containers don't have live resource statistics.
+			if !strings.HasPrefix(container.Status, "Up") {
+				results <- container
+				return
+			}
+
 			ctx, cancel := context.WithTimeout(
 				context.Background(),
 				3*time.Second,
@@ -159,7 +161,10 @@ func getContainerResourceUsage(dockerClient *client.Client, statuses []Container
 			usage, err := dockerClient.ContainerStats(
 				ctx,
 				container.Name,
-				client.ContainerStatsOptions{Stream: true},
+				client.ContainerStatsOptions{
+					Stream:                false,
+					IncludePreviousSample: true,
+				},
 			)
 			if err != nil {
 				log.Printf(
@@ -168,34 +173,17 @@ func getContainerResourceUsage(dockerClient *client.Client, statuses []Container
 					err,
 				)
 
-				// Send the container back with zero resource usage.
 				results <- container
 				return
 			}
 
 			defer usage.Body.Close()
 
-			decoder := json.NewDecoder(usage.Body)
+			var stats containerStats
 
-			var previousStats containerStats
-			var currentStats containerStats
-
-			// Get the first stats sample.
-			if err := decoder.Decode(&previousStats); err != nil {
+			if err := json.NewDecoder(usage.Body).Decode(&stats); err != nil {
 				log.Printf(
-					"Failed to decode initial resource usage for container %s: %v",
-					container.Name,
-					err,
-				)
-
-				results <- container
-				return
-			}
-
-			// Get the second stats sample.
-			if err := decoder.Decode(&currentStats); err != nil {
-				log.Printf(
-					"Failed to decode second resource usage for container %s: %v",
+					"Failed to decode resource usage for container %s: %v",
 					container.Name,
 					err,
 				)
@@ -205,17 +193,16 @@ func getContainerResourceUsage(dockerClient *client.Client, statuses []Container
 			}
 
 			container.CPUUsage = calculateCPUUsagePercent(
-				previousStats,
-				currentStats,
+				stats.PreCPUStats,
+				stats.CPUStats,
 			)
 
-			container.MemoryUsage = calculateMemoryUsagePercent(currentStats)
+			container.MemoryUsage = calculateMemoryUsagePercent(stats)
 
 			results <- container
 		}(container)
 	}
 
-	// Collect one result from each goroutine.
 	var updatedStatuses []Container
 
 	for range statuses {
@@ -283,4 +270,11 @@ type Monitor struct {
 	client   *client.Client
 	statuses []Container
 	mutex    sync.RWMutex
+}
+
+type cpuStats struct {
+	CPUUsage struct {
+		TotalUsage uint64 `json:"total_usage"`
+	} `json:"cpu_usage"`
+	SystemCPUUsage uint64 `json:"system_cpu_usage"`
 }
