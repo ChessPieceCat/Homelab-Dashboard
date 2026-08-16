@@ -24,6 +24,15 @@ func main() {
 		),
 	)
 
+	// Serve static files from the "web" directory
+	http.Handle(
+		"/static/",
+		http.StripPrefix(
+			"/static/",
+			http.FileServer(http.Dir("web")),
+		),
+	)
+
 	// Serve the index.html file
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		tmpl, err := template.ParseFiles("web/index.html")
