@@ -40,11 +40,6 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// Get container statuses
 		statuses := monitor.GetStatuses()
-		if err != nil {
-			log.Printf("Failed to get container statuses: %v", err)
-			http.Error(w, "Failed to get container statuses", http.StatusInternalServerError)
-			return
-		}
 
 		// Get system usage
 		cpuUsage, memoryUsage, storageUsage, err := system.GetSystemUsage()
@@ -55,21 +50,23 @@ func main() {
 		}
 
 		// Get system uptime
-		uptime := system.CalculateUptime(0) // Pass 0 to get the current uptime
+		uptime, err := system.GetSystemUptime()
+		if err != nil {
+			log.Printf("Failed to get system uptime: %v", err)
+			http.Error(w, "Failed to get system uptime", http.StatusInternalServerError)
+			return
+		}
+
+		// Format uptime
+		uptimeStr := system.FormatUptime(uptime)
 
 		// Pass the container statuses and system usage to the template
-		data := struct {
-			Statuses     []docker.Container
-			CPUUsage     float64
-			MemoryUsage  float64
-			StorageUsage float64
-			Uptime       string
-		}{
+		data := DashboardData{
 			Statuses:     statuses,
 			CPUUsage:     cpuUsage,
 			MemoryUsage:  memoryUsage,
 			StorageUsage: storageUsage,
-			Uptime:       uptime,
+			Uptime:       uptimeStr,
 		}
 
 		if err := tmpl.Execute(w, data); err != nil {
@@ -80,4 +77,12 @@ func main() {
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+}
+
+type DashboardData struct {
+	Statuses     []docker.Container
+	CPUUsage     float64
+	MemoryUsage  float64
+	StorageUsage float64
+	Uptime       string
 }

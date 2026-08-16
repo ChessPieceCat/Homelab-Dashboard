@@ -36,6 +36,7 @@ func GetContainerStatuses(apiClient *client.Client) ([]Container, error) {
 	var containerStatuses []Container
 	for _, container := range containers.Items {
 		containerStatuses = append(containerStatuses, Container{
+			ID:          container.ID,
 			Name:        container.Names[0],
 			Status:      container.Status,
 			CPUUsage:    0,
@@ -57,11 +58,9 @@ func GetContainerStatuses(apiClient *client.Client) ([]Container, error) {
 type containerStats struct {
 	CPUStats struct {
 		CPUUsage struct {
-			TotalUsage  uint64   `json:"total_usage"`
-			PercpuUsage []uint64 `json:"percpu_usage"`
+			TotalUsage uint64 `json:"total_usage"`
 		} `json:"cpu_usage"`
 		SystemCPUUsage uint64 `json:"system_cpu_usage"`
-		OnlineCPUs     uint32 `json:"online_cpus"`
 	} `json:"cpu_stats"`
 	PreCPUStats struct {
 		CPUUsage struct {
@@ -80,7 +79,7 @@ type containerStats struct {
 // cpu_delta = current CPU usage - previous CPU usage
 // system_cpu_delta = current system CPU usage - previous system CPU usage
 // number_cpus = number of online CPUs
-// CPU usage % = (cpu_delta / system_cpu_delta) * number_cpus * 100.0
+// CPU usage % = (cpu_delta / system_cpu_delta) * 100.0
 func calculateCPUUsagePercent(previous, current containerStats) float64 {
 	if current.CPUStats.CPUUsage.TotalUsage < previous.CPUStats.CPUUsage.TotalUsage {
 		return 0
@@ -122,8 +121,14 @@ func calculateCPUUsagePercent(previous, current containerStats) float64 {
 func calculateMemoryUsagePercent(stats containerStats) float64 {
 	var usedMemory uint64
 	if cache, ok := stats.MemoryStats.Stats["cache"]; ok {
+		if cache > stats.MemoryStats.Usage {
+			return 0
+		}
 		usedMemory = stats.MemoryStats.Usage - cache
 	} else if inactiveFile, ok := stats.MemoryStats.Stats["inactive_file"]; ok {
+		if inactiveFile > stats.MemoryStats.Usage {
+			return 0
+		}
 		usedMemory = stats.MemoryStats.Usage - inactiveFile
 	} else {
 		usedMemory = stats.MemoryStats.Usage
@@ -141,12 +146,18 @@ func calculateMemoryUsagePercent(stats containerStats) float64 {
 // getContainerResourceUsage fetches CPU and memory usage percentages for each
 // container and returns an updated slice with those fields populated
 func getContainerResourceUsage(dockerClient *client.Client, statuses []Container) ([]Container, error) {
-	results := make(chan Container)
+	results := make(chan Container, len(statuses))
 
 	for _, container := range statuses {
 		go func(container Container) {
-			usage, err := dockerClient.ContainerStats(
+			ctx, cancel := context.WithTimeout(
 				context.Background(),
+				3*time.Second,
+			)
+			defer cancel()
+
+			usage, err := dockerClient.ContainerStats(
+				ctx,
 				container.Name,
 				client.ContainerStatsOptions{Stream: true},
 			)
@@ -217,13 +228,13 @@ func getContainerResourceUsage(dockerClient *client.Client, statuses []Container
 
 func (m *Monitor) Start(interval time.Duration) {
 	go func() {
+		m.update() // Initial update before starting the ticker
+
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
-		for {
+		for range ticker.C {
 			m.update()
-
-			<-ticker.C
 		}
 	}()
 }
@@ -255,14 +266,13 @@ func (m *Monitor) GetStatuses() []Container {
 // NewMonitor creates a new Monitor instance with the provided Docker client.
 func NewMonitor(client *client.Client) *Monitor {
 	return &Monitor{
-		client:   client,
-		statuses: []Container{},
-		mutex:    sync.RWMutex{},
+		client: client,
 	}
 }
 
 // Create containers struct to hold container information
 type Container struct {
+	ID          string
 	Name        string
 	Status      string
 	CPUUsage    float64
