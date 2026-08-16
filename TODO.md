@@ -1,12 +1,12 @@
 Version 1
-- [] Serve HTML page
-- [] Connect to Docker
-- [] List containers
-- [] Show running/stopped
+- [x] Serve HTML page
+- [x] Connect to Docker
+- [x] List containers
+- [x] Show running/stopped
 
 Version 2
-- [] CPU usage
-- [] Memory usage
+- [x] CPU usage
+- [x] Memory usage
 - [] Uptime
 
 Version 3

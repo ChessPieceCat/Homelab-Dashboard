@@ -7,8 +7,9 @@ html
 
 .performance-metrics ul {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     justify-items: center;
+    align-content: center;
     align-items: center;
     font-size: 1.2em;
     margin-top: 20px;

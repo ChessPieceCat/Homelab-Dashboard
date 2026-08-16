@@ -10,10 +10,9 @@
     <h1>Server Dashboard</h1>
     <div class="performance-metrics">
         <ul>
-            <li>CPU: 65%</li>
-            <li>GPU: 45%</li>
-            <li>Memory: 42%</li>
-            <li>Storage: 78%</li>
+            <li>CPU: {{ .CPUUsage }}%</li>
+            <li>Memory: {{ .MemoryUsage }}%</li>
+            <li>Storage: {{ .StorageUsage }}%</li>
         </ul>
     </div>
 
@@ -21,7 +20,7 @@
       <h2>Containers</h2>
       <ul>
         {{ range .Statuses }}
-          <li>{{ .Name }} Status: {{ .Status }}</li>
+          <li>{{ .Name }} Status: {{ .Status }} CPU: {{ .CPUUsage }}% Memory: {{ .MemoryUsage }}%</li>
         {{ end }}
       </ul>
     </div>
