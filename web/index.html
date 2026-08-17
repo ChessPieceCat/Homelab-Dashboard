@@ -22,6 +22,12 @@
       </div>
     </header>
 
+    {{ if .ErrorMessage }}
+    <div class="error-message">
+      {{ .ErrorMessage }}
+    </div>
+    {{ end }}
+
     <div class="performance-metrics">
         {{ template "performance" . }}
     </div>
