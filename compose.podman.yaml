@@ -1,0 +1,13 @@
+services:
+  dashboard:
+    build: .
+    container_name: homelab-dashboard
+    ports:
+      - "8080:8080"
+    environment:
+      - DOCKER_HOST=unix:///var/run/podman/podman.sock
+    volumes:
+      - ${XDG_RUNTIME_DIR}/podman/podman.sock:/var/run/podman/podman.sock
+    security_opt:
+      - label=disable
+    restart: unless-stopped
