@@ -1,6 +1,6 @@
 services:
   dashboard:
-    build: .
+    image: ghcr.io/chesspiececat/homelab-dashboard:latest
     container_name: homelab-dashboard
     ports:
       - "8080:8080"
