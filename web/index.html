@@ -5,34 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Homelab Dashboard</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <script src="/static/script.js"></script>
   </head>
+
   <body>
     <h1>Server Dashboard</h1>
+
     <div class="performance-metrics">
-        <ul>
-            <li>CPU: {{ .CPUUsage }}%</li>
-            <li>Memory: {{ .MemoryUsage }}%</li>
-            <li>Storage: {{ .StorageUsage }}%</li>
-            <li>Uptime: {{ .Uptime }}</li>
-        </ul>
+        {{ template "performance" . }}
     </div>
 
     <div class="containers">
-      <h2>Containers</h2>
-      <ul>
-        {{ range .Statuses }}
-          <li>{{ .Name }} Status: {{ .Status }} CPU: {{ .CPUUsage }}% Memory: {{ .MemoryUsage }}% <form action="/container/start" method="POST">
-            <input type="hidden" name="containerID" value="{{ .ID }}">
-            <button type="submit">Start</button>
-          </form> <form action="/container/stop" method="POST">
-            <input type="hidden" name="containerID" value="{{ .ID }}">
-            <button type="submit">Stop</button>
-          </form> <form action="/container/restart" method="POST">
-            <input type="hidden" name="containerID" value="{{ .ID }}">
-            <button type="submit">Restart</button>
-          </form></li>
-        {{ end }}
-      </ul>
+        {{ template "containers" . }}
     </div>
   </body>
 </html>

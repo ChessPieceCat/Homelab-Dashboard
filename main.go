@@ -30,12 +30,18 @@ func main() {
 	// Start the monitor
 	monitor.Start(5 * time.Second) // Update every 5 seconds
 
-	tmpl, err := template.ParseFiles("web/index.html")
+	tmpl, err := template.ParseFiles(
+		"web/index.html",
+		"web/containers.html",
+		"web/performance.html",
+	)
 	if err != nil {
 		log.Fatalf("Failed to parse template: %v", err)
 	}
 
 	http.HandleFunc("/", dashboardHandler(monitor, tmpl))
+	http.HandleFunc("/containers", containersHandler(monitor, tmpl))
+	http.HandleFunc("/performance", performanceHandler(tmpl))
 	http.HandleFunc("/container/start", containerActionHandler(dockerClient, monitor))
 	http.HandleFunc("/container/stop", containerActionHandler(dockerClient, monitor))
 	http.HandleFunc("/container/restart", containerActionHandler(dockerClient, monitor))
