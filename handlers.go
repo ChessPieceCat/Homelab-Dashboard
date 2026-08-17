@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"path"
+	"sync"
 
 	"github.com/moby/moby/client"
 )
@@ -38,7 +39,7 @@ func dashboardHandler(monitor *docker.Monitor, tmpl *template.Template) http.Han
 
 		// Pass the container statuses and system usage to the template
 		data := DashboardData{
-			Statuses:     statuses,
+			Containers:   statuses,
 			CPUUsage:     cpuUsage,
 			MemoryUsage:  memoryUsage,
 			StorageUsage: storageUsage,
@@ -67,17 +68,141 @@ func containerActionHandler(dockerClient *client.Client, monitor *docker.Monitor
 		// Get the container action from the URL path.
 		action := path.Base(r.URL.Path)
 
-		var err error
+		switch action {
+		case "start", "stop", "restart", "delete":
+			// Valid action.
+		default:
+			http.Error(
+				w,
+				"Unknown action: "+action,
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		containerActionMutex.Lock()
+		defer containerActionMutex.Unlock()
+
+		info, err := dockerClient.ContainerInspect(r.Context(), containerID, client.ContainerInspectOptions{})
+		if err != nil {
+			http.Error(
+				w,
+				"Failed to inspect container: "+err.Error(),
+				http.StatusInternalServerError,
+			)
+			return
+		}
+
+		log.Printf(
+			"Container %s state before %s: running=%t, status=%s",
+			containerID,
+			action,
+			info.Container.State.Running,
+			info.Container.State.Status,
+		)
+
 		switch action {
 		case "start":
+			status := info.Container.State.Status
+
+			if status == "running" {
+				http.Error(
+					w,
+					"Container is already running",
+					http.StatusConflict,
+				)
+				return
+			}
+
+			if status == "restarting" || status == "stopping" {
+				http.Error(
+					w,
+					"Container is currently "+string(status),
+					http.StatusConflict,
+				)
+				return
+			}
+
+			if status != "created" && status != "exited" {
+				http.Error(
+					w,
+					"Container cannot be started from state: "+string(status),
+					http.StatusConflict,
+				)
+				return
+			}
+
 			log.Printf("Starting container: %s", containerID)
-			_, err = dockerClient.ContainerStart(r.Context(), containerID, client.ContainerStartOptions{})
+
+			_, err = dockerClient.ContainerStart(
+				r.Context(),
+				containerID,
+				client.ContainerStartOptions{},
+			)
 		case "stop":
+			status := info.Container.State.Status
+
+			if status == "stopping" {
+				http.Error(
+					w,
+					"Container is already stopping",
+					http.StatusConflict,
+				)
+				return
+			}
+
+			if status != "running" {
+				http.Error(
+					w,
+					"Container is not running",
+					http.StatusConflict,
+				)
+				return
+			}
+
 			log.Printf("Stopping container: %s", containerID)
-			_, err = dockerClient.ContainerStop(r.Context(), containerID, client.ContainerStopOptions{})
+
+			_, err = dockerClient.ContainerStop(
+				r.Context(),
+				containerID,
+				client.ContainerStopOptions{},
+			)
 		case "restart":
 			log.Printf("Restarting container: %s", containerID)
 			_, err = dockerClient.ContainerRestart(r.Context(), containerID, client.ContainerRestartOptions{})
+		case "delete":
+			log.Printf("Deleting container: %s", containerID)
+
+			_, err = dockerClient.ContainerRemove(
+				r.Context(),
+				containerID,
+				client.ContainerRemoveOptions{
+					Force:         false,
+					RemoveVolumes: false,
+					RemoveLinks:   false,
+				},
+			)
+
+			if err != nil {
+				http.Error(
+					w,
+					"Failed to delete container: "+err.Error(),
+					http.StatusInternalServerError,
+				)
+				return
+			}
+
+			if err := monitor.RemoveContainer(containerID); err != nil {
+				log.Printf(
+					"Failed to remove container %s from monitor: %v",
+					containerID,
+					err,
+				)
+			}
+
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+			return
+
 		default:
 			http.Error(w, "Unknown action: "+action, http.StatusBadRequest)
 			return
@@ -96,15 +221,12 @@ func containerActionHandler(dockerClient *client.Client, monitor *docker.Monitor
 	}
 }
 
-func containersHandler(
-	monitor *docker.Monitor,
-	tmpl *template.Template,
-) http.HandlerFunc {
+func containersHandler(monitor *docker.Monitor, tmpl *template.Template) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		statuses := monitor.GetStatuses()
 
 		data := DashboardData{
-			Statuses: statuses,
+			Containers: statuses,
 		}
 
 		if err := tmpl.ExecuteTemplate(w, "containers", data); err != nil {
@@ -159,9 +281,11 @@ func performanceHandler(tmpl *template.Template) http.HandlerFunc {
 }
 
 type DashboardData struct {
-	Statuses     []docker.Container
+	Containers   []docker.Container
 	CPUUsage     float64
 	MemoryUsage  float64
 	StorageUsage float64
 	Uptime       string
 }
+
+var containerActionMutex sync.Mutex

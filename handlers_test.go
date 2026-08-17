@@ -37,10 +37,10 @@ func TestDashboardHandler(t *testing.T) {
 	expectedContent := []string{
 		"Server Dashboard",
 		"Containers",
-		"CPU:",
-		"Memory:",
-		"Storage:",
-		"Uptime:",
+		"CPU",
+		"Memory",
+		"Storage",
+		"Uptime",
 	}
 
 	for _, content := range expectedContent {
@@ -100,7 +100,7 @@ func TestContainerActionHandlerUnknownAction(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPost,
-		"/container/delete",
+		"/container/unknown",
 		strings.NewReader("containerID=test-container"),
 	)
 	req.Header.Set(

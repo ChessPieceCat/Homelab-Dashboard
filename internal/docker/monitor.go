@@ -73,6 +73,21 @@ func (m *Monitor) RefreshContainer(containerID string) error {
 	return fmt.Errorf("container %s not found in monitor", containerID)
 }
 
+func (m *Monitor) RemoveContainer(containerID string) error {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	for i := range m.statuses {
+		if m.statuses[i].ID == containerID {
+			// Remove the container from the slice
+			m.statuses = append(m.statuses[:i], m.statuses[i+1:]...)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("container %s not found in monitor", containerID)
+}
+
 // NewMonitor creates a new Monitor instance with the provided Docker client.
 func NewMonitor(client *client.Client) *Monitor {
 	return &Monitor{

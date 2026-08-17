@@ -12,7 +12,7 @@ import (
 func TestTemplateRendering(t *testing.T) {
 	// Construct test data.
 	data := DashboardData{
-		Statuses: []docker.Container{
+		Containers: []docker.Container{
 			{
 				ID:          "test-container-id",
 				Name:        "test-container",

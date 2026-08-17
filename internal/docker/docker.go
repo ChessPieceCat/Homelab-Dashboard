@@ -40,6 +40,7 @@ func GetContainers(apiClient *client.Client) ([]Container, error) {
 		containerStatuses = append(containerStatuses, Container{
 			ID:          container.ID,
 			Name:        container.Names[0],
+			State:       string(container.State),
 			Status:      container.Status,
 			CPUUsage:    0,
 			MemoryUsage: 0,
@@ -251,6 +252,7 @@ func GetContainerStatus(
 type Container struct {
 	ID          string
 	Name        string
+	State       string
 	Status      string
 	CPUUsage    float64
 	MemoryUsage float64

@@ -14,7 +14,7 @@ Version 3
 - [x] Stop container
 
 Version 4
-- [] Auto-refresh
+- [x] Auto-refresh
 
 Version 5
-- [] Improve UI
+- [x] Improve UI
