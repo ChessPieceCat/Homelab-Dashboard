@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 	"path"
 	"sync"
 
@@ -15,6 +16,8 @@ import (
 func dashboardHandler(monitor *docker.Monitor, tmpl *template.Template) http.HandlerFunc {
 	// Serve the index.html file
 	return func(w http.ResponseWriter, r *http.Request) {
+		errorMessage := r.URL.Query().Get("error")
+
 		// Get container statuses
 		statuses := monitor.GetStatuses()
 
@@ -44,6 +47,7 @@ func dashboardHandler(monitor *docker.Monitor, tmpl *template.Template) http.Han
 			MemoryUsage:  memoryUsage,
 			StorageUsage: storageUsage,
 			Uptime:       uptimeStr,
+			ErrorMessage: errorMessage,
 		}
 
 		if err := tmpl.Execute(w, data); err != nil {
@@ -85,10 +89,10 @@ func containerActionHandler(dockerClient *client.Client, monitor *docker.Monitor
 
 		info, err := dockerClient.ContainerInspect(r.Context(), containerID, client.ContainerInspectOptions{})
 		if err != nil {
-			http.Error(
+			redirectWithError(
 				w,
+				r,
 				"Failed to inspect container: "+err.Error(),
-				http.StatusInternalServerError,
 			)
 			return
 		}
@@ -106,28 +110,24 @@ func containerActionHandler(dockerClient *client.Client, monitor *docker.Monitor
 			status := info.Container.State.Status
 
 			if status == "running" {
-				http.Error(
-					w,
-					"Container is already running",
-					http.StatusConflict,
-				)
+				redirectWithError(w, r, "Container is already running")
 				return
 			}
 
 			if status == "restarting" || status == "stopping" {
-				http.Error(
+				redirectWithError(
 					w,
+					r,
 					"Container is currently "+string(status),
-					http.StatusConflict,
 				)
 				return
 			}
 
 			if status != "created" && status != "exited" {
-				http.Error(
+				redirectWithError(
 					w,
+					r,
 					"Container cannot be started from state: "+string(status),
-					http.StatusConflict,
 				)
 				return
 			}
@@ -139,24 +139,17 @@ func containerActionHandler(dockerClient *client.Client, monitor *docker.Monitor
 				containerID,
 				client.ContainerStartOptions{},
 			)
+
 		case "stop":
 			status := info.Container.State.Status
 
 			if status == "stopping" {
-				http.Error(
-					w,
-					"Container is already stopping",
-					http.StatusConflict,
-				)
+				redirectWithError(w, r, "Container is already stopping")
 				return
 			}
 
 			if status != "running" {
-				http.Error(
-					w,
-					"Container is not running",
-					http.StatusConflict,
-				)
+				redirectWithError(w, r, "Container is not running")
 				return
 			}
 
@@ -184,10 +177,10 @@ func containerActionHandler(dockerClient *client.Client, monitor *docker.Monitor
 			)
 
 			if err != nil {
-				http.Error(
+				redirectWithError(
 					w,
-					"Failed to delete container: "+err.Error(),
-					http.StatusInternalServerError,
+					r,
+					"Failed to "+action+" container: "+err.Error(),
 				)
 				return
 			}
@@ -209,7 +202,11 @@ func containerActionHandler(dockerClient *client.Client, monitor *docker.Monitor
 		}
 
 		if err != nil {
-			http.Error(w, "Failed to "+action+" container: "+err.Error(), http.StatusInternalServerError)
+			redirectWithError(
+				w,
+				r,
+				"Failed to "+action+" container: "+err.Error(),
+			)
 			return
 		}
 
@@ -280,12 +277,22 @@ func performanceHandler(tmpl *template.Template) http.HandlerFunc {
 	}
 }
 
+func redirectWithError(w http.ResponseWriter, r *http.Request, message string) {
+	http.Redirect(
+		w,
+		r,
+		"/?error="+url.QueryEscape(message),
+		http.StatusSeeOther,
+	)
+}
+
 type DashboardData struct {
 	Containers   []docker.Container
 	CPUUsage     float64
 	MemoryUsage  float64
 	StorageUsage float64
 	Uptime       string
+	ErrorMessage string
 }
 
 var containerActionMutex sync.Mutex
