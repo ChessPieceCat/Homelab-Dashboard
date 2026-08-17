@@ -35,7 +35,11 @@ func TestTemplateRendering(t *testing.T) {
 	}
 
 	// Parse the dashboard template.
-	tmpl, err := template.ParseFiles("web/index.html")
+	tmpl, err := template.ParseFiles(
+		"web/index.html",
+		"web/containers.html",
+		"web/performance.html",
+	)
 	if err != nil {
 		t.Fatalf("failed to parse template: %v", err)
 	}
