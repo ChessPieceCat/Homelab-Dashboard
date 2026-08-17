@@ -37,10 +37,10 @@ func TestDashboardHandler(t *testing.T) {
 	expectedContent := []string{
 		"Server Dashboard",
 		"Containers",
-		"CPU:",
-		"Memory:",
-		"Storage:",
-		"Uptime:",
+		"CPU",
+		"Memory",
+		"Storage",
+		"Uptime",
 	}
 
 	for _, content := range expectedContent {

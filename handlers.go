@@ -68,6 +68,18 @@ func containerActionHandler(dockerClient *client.Client, monitor *docker.Monitor
 		// Get the container action from the URL path.
 		action := path.Base(r.URL.Path)
 
+		switch action {
+		case "start", "stop", "restart", "delete":
+			// Valid action.
+		default:
+			http.Error(
+				w,
+				"Unknown action: "+action,
+				http.StatusBadRequest,
+			)
+			return
+		}
+
 		containerActionMutex.Lock()
 		defer containerActionMutex.Unlock()
 
