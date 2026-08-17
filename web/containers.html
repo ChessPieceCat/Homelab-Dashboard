@@ -1,0 +1,28 @@
+{{ define "containers" }}
+<h2>Containers</h2>
+<ul>
+    {{ range .Statuses }}
+    <li>
+        {{ .Name }}
+        Status: {{ .Status }}
+        CPU: {{ .CPUUsage }}%
+        Memory: {{ .MemoryUsage }}%
+
+        <form action="/container/start" method="POST">
+            <input type="hidden" name="containerID" value="{{ .ID }}">
+            <button type="submit">Start</button>
+        </form>
+
+        <form action="/container/stop" method="POST">
+            <input type="hidden" name="containerID" value="{{ .ID }}">
+            <button type="submit">Stop</button>
+        </form>
+
+        <form action="/container/restart" method="POST">
+            <input type="hidden" name="containerID" value="{{ .ID }}">
+            <button type="submit">Restart</button>
+        </form>
+    </li>
+    {{ end }}
+</ul>
+{{ end }}

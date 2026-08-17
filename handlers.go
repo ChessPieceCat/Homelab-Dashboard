@@ -96,6 +96,68 @@ func containerActionHandler(dockerClient *client.Client, monitor *docker.Monitor
 	}
 }
 
+func containersHandler(
+	monitor *docker.Monitor,
+	tmpl *template.Template,
+) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		statuses := monitor.GetStatuses()
+
+		data := DashboardData{
+			Statuses: statuses,
+		}
+
+		if err := tmpl.ExecuteTemplate(w, "containers", data); err != nil {
+			http.Error(
+				w,
+				"Failed to render containers: "+err.Error(),
+				http.StatusInternalServerError,
+			)
+		}
+	}
+}
+
+func performanceHandler(tmpl *template.Template) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cpuUsage, memoryUsage, storageUsage, err := system.GetSystemUsage()
+		if err != nil {
+			log.Printf("Failed to get system usage: %v", err)
+			http.Error(
+				w,
+				"Failed to get system usage",
+				http.StatusInternalServerError,
+			)
+			return
+		}
+
+		uptime, err := system.GetSystemUptime()
+		if err != nil {
+			log.Printf("Failed to get system uptime: %v", err)
+			http.Error(
+				w,
+				"Failed to get system uptime",
+				http.StatusInternalServerError,
+			)
+			return
+		}
+
+		data := DashboardData{
+			CPUUsage:     cpuUsage,
+			MemoryUsage:  memoryUsage,
+			StorageUsage: storageUsage,
+			Uptime:       system.FormatUptime(uptime),
+		}
+
+		if err := tmpl.ExecuteTemplate(w, "performance", data); err != nil {
+			http.Error(
+				w,
+				"Failed to render performance: "+err.Error(),
+				http.StatusInternalServerError,
+			)
+		}
+	}
+}
+
 type DashboardData struct {
 	Statuses     []docker.Container
 	CPUUsage     float64
