@@ -1,27 +1,61 @@
 {{ define "containers" }}
-<h2>Containers</h2>
-<ul>
-    {{ range .Statuses }}
-    <li>
-        {{ .Name }}
-        Status: {{ .Status }}
-        CPU: {{ .CPUUsage }}%
-        Memory: {{ .MemoryUsage }}%
+<div class="section-header">
+    <div>
+        <span class="eyebrow">SERVICES</span>
+        <h2>Containers</h2>
+    </div>
 
-        <form action="/container/start" method="POST">
-            <input type="hidden" name="containerID" value="{{ .ID }}">
-            <button type="submit">Start</button>
-        </form>
+    <span class="container-count">
+        {{ len .Containers }} containers
+    </span>
+    </div>
+    <ul>
+        {{ range .Containers }}
+        <li>
+            <span class="container-name">{{ .Name }}</span>
+            <span class="container-status status-{{ .State }}">
+                <span class="status-line">
+                    <span class="status-dot"></span>
+                    <strong>{{ .State }}</strong>
+                </span>
+                <span class="status-detail">{{ .Status }}</span>
+            </span>
+            <span>CPU: {{ .CPUUsage }}%</span>
+            <span>Memory: {{ .MemoryUsage }}%</span>
 
-        <form action="/container/stop" method="POST">
-            <input type="hidden" name="containerID" value="{{ .ID }}">
-            <button type="submit">Stop</button>
-        </form>
+            <div class="container-actions">
+
+        {{ if eq .State "running" }}
+            <form action="/container/stop" method="POST">
+                <input type="hidden" name="containerID" value="{{ .ID }}">
+                <button type="submit">Stop</button>
+            </form>
+
+        {{ else if eq .State "stopping" }}
+            <button type="button" disabled>Stopping...</button>
+
+        {{ else if eq .State "restarting" }}
+            <button type="button" disabled>Restarting...</button>
+
+        {{ else }}
+            <form action="/container/start" method="POST">
+                <input type="hidden" name="containerID" value="{{ .ID }}">
+                <button type="submit">Start</button>
+            </form>
+        {{ end }}
 
         <form action="/container/restart" method="POST">
             <input type="hidden" name="containerID" value="{{ .ID }}">
             <button type="submit">Restart</button>
         </form>
+
+        <form action="/container/delete" method="POST"
+            onsubmit="return confirm('Are you sure you want to delete this container?');">
+            <input type="hidden" name="containerID" value="{{ .ID }}">
+            <button type="submit" class="delete">Delete</button>
+        </form>
+
+    </div>
     </li>
     {{ end }}
 </ul>

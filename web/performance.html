@@ -1,8 +1,29 @@
 {{ define "performance" }}
 <ul>
-    <li>CPU: {{ .CPUUsage }}%</li>
-    <li>Memory: {{ .MemoryUsage }}%</li>
-    <li>Storage: {{ .StorageUsage }}%</li>
-    <li>Uptime: {{ .Uptime }}</li>
+    <li class="metric-card">
+        <span class="metric-label">CPU</span>
+        <strong class="metric-value">{{ printf "%.1f%%" .CPUUsage }}</strong>
+        <div class="progress">
+            <div class="progress-fill" style="width: {{ .CPUUsage }}%"></div>
+        </div>
+    </li>
+    <li class="metric-card">
+        <span class="metric-label">Memory</span>
+        <strong class="metric-value">{{ printf "%.1f%%" .MemoryUsage }}</strong>
+        <div class="progress">
+            <div class="progress-fill" style="width: {{ .MemoryUsage }}%"></div>
+        </div>
+    </li>
+    <li class="metric-card">
+        <span class="metric-label">Storage</span>
+        <strong class="metric-value">{{ printf "%.1f%%" .StorageUsage }}</strong>
+        <div class="progress">
+            <div class="progress-fill" style="width: {{ .StorageUsage }}%"></div>
+        </div>
+    </li>
+    <li class="metric-card">
+        <span class="metric-label">Uptime</span>
+        <strong class="metric-value">{{ .Uptime }}</strong>
+    </li>
 </ul>
 {{ end }}

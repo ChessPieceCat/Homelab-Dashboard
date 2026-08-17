@@ -9,7 +9,18 @@
   </head>
 
   <body>
-    <h1>Server Dashboard</h1>
+    <header class="dashboard-header">
+      <div>
+        <span class="eyebrow">HOMELAB</span>
+        <h1>Server Dashboard</h1>
+        <p>System and container monitoring</p>
+      </div>
+
+      <div class="server-status">
+        <span class="status-dot"></span>
+        Online
+      </div>
+    </header>
 
     <div class="performance-metrics">
         {{ template "performance" . }}

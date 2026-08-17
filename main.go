@@ -45,6 +45,7 @@ func main() {
 	http.HandleFunc("/container/start", containerActionHandler(dockerClient, monitor))
 	http.HandleFunc("/container/stop", containerActionHandler(dockerClient, monitor))
 	http.HandleFunc("/container/restart", containerActionHandler(dockerClient, monitor))
+	http.HandleFunc("/container/delete", containerActionHandler(dockerClient, monitor))
 
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
